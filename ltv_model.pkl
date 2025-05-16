@@ -1,0 +1,153 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "25b0498f-ddb7-4b6a-af68-fe482698f439",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "from xgboost import XGBRegressor\n",
+    "from sklearn.metrics import mean_absolute_error, mean_squared_error\n",
+    "\n",
+    "# Load the data\n",
+    "customers = pd.read_excel(\"C:/Users/Ravali/Downloads/customers.xlsx\")  # Ensure you have this file\n",
+    "transactions = pd.read_excel(\"C:/Users/Ravali/Downloads/transactions.xlsx\")  # Ensure you have this file\n",
+    "\n",
+    "# Merge the data based on customer_id\n",
+    "data = pd.merge(transactions, customers, on=\"customer_id\", how=\"inner\")\n",
+    "data['transaction_date'] = pd.to_datetime(data['transaction_date'])\n",
+    "snapshot_date = data['transaction_date'].max() + pd.Timedelta(days=1)\n",
+    "\n",
+    "# Feature engineering: Recency, Frequency, AOV (Average Order Value)\n",
+    "customer_features = data.groupby('customer_id').agg({\n",
+    "    'transaction_date': [lambda x: (snapshot_date - x.max()).days, 'count'],\n",
+    "    'purchase_amount': 'sum'\n",
+    "}).reset_index()\n",
+    "\n",
+    "customer_features.columns = ['customer_id', 'recency', 'frequency', 'monetary']\n",
+    "customer_features['aov'] = customer_features['monetary'] / customer_features['frequency']\n",
+    "\n",
+    "# Prepare the features and target\n",
+    "X = customer_features[['recency', 'frequency', 'aov']]\n",
+    "y = customer_features['monetary']\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "2fd3e7c8-4653-4851-a724-96571747ecaf",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "MAE: 201.02130126953125\n",
+      "RMSE: 201.02130126953125\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Train-test split\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
+    "\n",
+    "# Train the XGBoost model\n",
+    "model = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=5, random_state=42)\n",
+    "model.fit(X_train, y_train)\n",
+    "\n",
+    "# Model evaluation\n",
+    "y_pred = model.predict(X_test)\n",
+    "mae = mean_absolute_error(y_test, y_pred)\n",
+    "rmse = np.sqrt(mean_squared_error(y_test, y_pred))\n",
+    "\n",
+    "print(f\"MAE: {mae}\")\n",
+    "print(f\"RMSE: {rmse}\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "fdd48401-1959-482e-963c-28b8e72bd5d4",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ Trained model saved as 'ltv_model.pkl'\n"
+     ]
+    }
+   ],
+   "source": [
+    "import joblib\n",
+    "\n",
+    "# Save the trained model to a file\n",
+    "joblib.dump(model, 'ltv_model.pkl')\n",
+    "\n",
+    "print(\"✅ Trained model saved as 'ltv_model.pkl'\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "fbd564ae-cbbd-493a-a938-06e57caa0a09",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[589.8936 589.8936 589.8936]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Example new data (use actual new data in practice)\n",
+    "new_data = pd.DataFrame({\n",
+    "    'recency': [10, 45, 5],\n",
+    "    'frequency': [8, 3, 12],\n",
+    "    'aov': [25.5, 40.2, 15.0]\n",
+    "})\n",
+    "\n",
+    "# Predict LTV for new data\n",
+    "predicted_ltv = model.predict(new_data)\n",
+    "\n",
+    "# Display predictions\n",
+    "print(predicted_ltv)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8435cdf7-36e9-4581-86f6-a103f7caa09a",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python [conda env:base] *",
+   "language": "python",
+   "name": "conda-base-py"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.7"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
